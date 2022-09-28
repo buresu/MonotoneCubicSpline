@@ -17,7 +17,7 @@ protected:
   virtual void mouseReleaseEvent(QMouseEvent *e) override;
 
 private:
-  QList<QPointF> _controls;
+  QList<double> _controls;
   int _selectIndex = -1;
 };
 
@@ -35,51 +35,53 @@ SplineWidget::SplineWidget(QWidget *parent) : QWidget(parent) {
   //          [](auto const &lhs, auto const &rhs) { return lhs.x() > rhs.x();
   //          });
 
-  _controls.append({100 + 0, 100 - 43.76931});
-  _controls.append({100 + 25, 100 - 19.131026});
-  _controls.append({100 + 50, 100 - 10.58543});
-  _controls.append({100 + 75, 100 - 5.7298435});
-  _controls.append({100 + 100, 100 - 2.627706});
+  _controls.append(43.76931);
+  _controls.append(19.131026);
+  _controls.append(10.58543);
+  _controls.append(5.7298435);
+  _controls.append(2.627706);
 }
 
 void SplineWidget::paintEvent(QPaintEvent *) {
-  /*
-    QPainter p(this);
 
-    p.setRenderHint(QPainter::Antialiasing);
+  QPainter p(this);
 
-    p.fillRect(rect(), Qt::white);
+  p.setRenderHint(QPainter::Antialiasing);
 
-    // draw spline
-    MonotoneCubicSpline::Controls controls;
+  p.fillRect(rect(), Qt::white);
 
-    for (auto &c : _controls) {
-      controls.push_back(MonotoneCubicSpline::Control(c.x(), c.y()));
-    }
+  // draw spline
+  MonotoneCubicSpline::Controls controls;
 
-    MonotoneCubicSpline cs(controls);
-    QPolygonF path;
+  for (auto &c : _controls)
+    controls.push_back(c);
 
-    for (int i = 0; i <= 100; ++i) {
-      auto pt = cs.interpolate(double(i) / 100.0);
-      path.append(QPointF(pt.x(), pt.y()));
-    }
+  MonotoneCubicSpline cs(controls);
+  QPolygonF path;
 
-    p.setPen(Qt::red);
-    p.drawPolyline(path);
+  for (int i = 0; i <= 100; ++i) {
+    double t = double(i) / 100.0;
+    auto y = cs.interpolate(t);
+    path.append(QPointF(double(width()) * t, y));
+  }
 
-    // draw controls
-    for (int i = 0; i < _controls.size(); ++i) {
-      _selectIndex == i ? p.setPen(Qt::magenta) : p.setPen(Qt::black);
-      p.drawEllipse(_controls[i], 3, 3);
-    }*/
+  p.setPen(Qt::red);
+  p.drawPolyline(path);
+
+  // draw controls
+  for (int i = 0; i < _controls.size(); ++i) {
+    double step = double(width()) / double(_controls.size() - 1);
+    _selectIndex == i ? p.setPen(Qt::magenta) : p.setPen(Qt::black);
+    p.drawEllipse(QPointF(step * double(i), _controls[i]), 3, 3);
+  }
 }
 
 void SplineWidget::mousePressEvent(QMouseEvent *e) {
 
   if (e->button() == Qt::LeftButton) {
     for (int i = 0; i < _controls.size(); ++i) {
-      auto d = e->position() - _controls[i];
+      double step = double(width()) / double(_controls.size() - 1);
+      auto d = e->position() - QPointF(step * double(i), _controls[i]);
       if (d.x() * d.x() + d.y() * d.y() < 6 * 6) {
         _selectIndex = i;
         break;
@@ -94,14 +96,16 @@ void SplineWidget::mousePressEvent(QMouseEvent *e) {
 void SplineWidget::mouseMoveEvent(QMouseEvent *e) {
 
   if (_selectIndex >= 0)
-    _controls[_selectIndex] = e->position();
+    _controls[_selectIndex] = e->position().y();
 
   e->ignore();
   update();
 }
 
 void SplineWidget::mouseReleaseEvent(QMouseEvent *e) {
+
   _selectIndex = -1;
+
   e->ignore();
   update();
 }
