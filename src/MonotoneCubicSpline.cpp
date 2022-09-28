@@ -66,9 +66,7 @@ MonotoneCubicSpline::Control MonotoneCubicSpline::interpolate(double t) const {
                       double step) {
     auto d0 = delta(p0, p1, step);
     auto d1 = delta(p1, p2, step);
-    Control r = (d0 + d1) * 0.5;
-    r = (d0 > 0 && d1 < 0) || (d0 < 0 && d1 > 0) ? 0.0 : r;
-    return r;
+    return d0 * d1 < 0.0 ? 0.0 : (d0 + d1) * 0.5;
   };
 
   auto d = delta(_controls[i], _controls[i + 1], step);
