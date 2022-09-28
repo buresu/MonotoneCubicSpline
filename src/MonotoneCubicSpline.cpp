@@ -53,9 +53,6 @@ MonotoneCubicSpline::Control MonotoneCubicSpline::interpolate(double t) const {
   const double tp = std::modf(t / step, &index);
   const size_t i = size_t(index);
 
-  if (index >= _controls.size() - 1)
-    return _controls[i];
-
   static auto delta = [](const Control &p1, const Control &p2, double step) {
     return (p2 - p1) / step;
   };
@@ -70,30 +67,31 @@ MonotoneCubicSpline::Control MonotoneCubicSpline::interpolate(double t) const {
   // Step 1
   auto dk = delta(_controls[i], _controls[i + 1], step);
 
-  Control m0, m1;
+  // Step 2
+  Control mk0, mk1;
 
   if (i == 0) {
-    m0 = delta(_controls[i], _controls[i + 1], step);
-    m1 = m(_controls[i], _controls[i + 1], _controls[i + 2], step);
+    mk0 = delta(_controls[i], _controls[i + 1], step);
+    mk1 = m(_controls[i], _controls[i + 1], _controls[i + 2], step);
   } else if (i == _controls.size() - 2) {
-    m0 = m(_controls[i - 1], _controls[i], _controls[i + 1], step);
-    m1 = delta(_controls[i], _controls[i + 1], step);
+    mk0 = m(_controls[i - 1], _controls[i], _controls[i + 1], step);
+    mk1 = delta(_controls[i], _controls[i + 1], step);
   } else {
-    m0 = m(_controls[i - 1], _controls[i], _controls[i + 1], step);
-    m1 = m(_controls[i], _controls[i + 1], _controls[i + 2], step);
+    mk0 = m(_controls[i - 1], _controls[i], _controls[i + 1], step);
+    mk1 = m(_controls[i], _controls[i + 1], _controls[i + 2], step);
   }
 
   if (_controls[i] == _controls[i + 1])
-    m0 = m1 = 0.0;
+    mk0 = mk1 = 0.0;
 
-  auto a = m0 / dk;
-  auto b = m1 / dk;
+  auto a = mk0 / dk;
+  auto b = mk1 / dk;
 
-  m0 = a < 0.0 || b < 0.0 ? 0.0 : m0;
+  // mk0 = a < 0.0 || b < 0.0 ? 0.0 : mk0;
   if (a * a + b * b > 9) {
     double g = 3.0 / std::sqrt(a * a + b * b);
-    m0 = g * a * dk;
-    m1 = g * b * dk;
+    mk0 = g * a * dk;
+    mk1 = g * b * dk;
   }
 
   auto h00 = 2.0 * tp * tp * tp - 3.0 * tp * tp + 1.0;
@@ -101,6 +99,6 @@ MonotoneCubicSpline::Control MonotoneCubicSpline::interpolate(double t) const {
   auto h01 = -2.0 * tp * tp * tp + 3.0 * tp * tp;
   auto h11 = tp * tp * tp - tp * tp;
 
-  return _controls[i] * h00 + step * m0 * h10 + _controls[i + 1] * h01 +
-         step * m1 * h11;
+  return _controls[i] * h00 + step * mk0 * h10 + _controls[i + 1] * h01 +
+         step * mk1 * h11;
 }
