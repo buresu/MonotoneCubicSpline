@@ -81,17 +81,25 @@ MonotoneCubicSpline::Control MonotoneCubicSpline::interpolate(double t) const {
     mk1 = m(_controls[i], _controls[i + 1], _controls[i + 2], step);
   }
 
-  if (_controls[i] == _controls[i + 1])
+  // Step 3
+  if (std::abs(_controls[i] - _controls[i + 1]) <
+      std::numeric_limits<Control>::epsilon()) {
     mk0 = mk1 = 0.0;
+  } else {
 
-  auto a = mk0 / dk;
-  auto b = mk1 / dk;
+    // Step 4
+    auto ak = mk0 / dk;
+    auto bk = mk1 / dk;
 
-  // mk0 = a < 0.0 || b < 0.0 ? 0.0 : mk0;
-  if (a * a + b * b > 9) {
-    double g = 3.0 / std::sqrt(a * a + b * b);
-    mk0 = g * a * dk;
-    mk1 = g * b * dk;
+    mk0 = ak < 0.0 ? 0.0 : mk0;
+    mk1 = bk < 0.0 ? 0.0 : mk1;
+
+    // Step 5
+    if (ak * ak + bk * bk > 9) {
+      double gk = 3.0 / std::sqrt(ak * ak + bk * bk);
+      mk0 = gk * ak * dk;
+      mk1 = gk * bk * dk;
+    }
   }
 
   auto h00 = 2.0 * tp * tp * tp - 3.0 * tp * tp + 1.0;
