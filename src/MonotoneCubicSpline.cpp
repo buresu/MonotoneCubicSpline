@@ -50,7 +50,7 @@ MonotoneCubicSpline::Control MonotoneCubicSpline::interpolate(double t) const {
 
   const double step = 1.0 / double(_controls.size() - 1);
   double index = 0;
-  const double tp = std::modf(t / step, &index);
+  const double lt = std::modf(t / step, &index);
   const size_t i = size_t(index);
 
   static auto delta = [](const Control &p1, const Control &p2, double step) {
@@ -102,10 +102,10 @@ MonotoneCubicSpline::Control MonotoneCubicSpline::interpolate(double t) const {
     }
   }
 
-  auto h00 = 2.0 * tp * tp * tp - 3.0 * tp * tp + 1.0;
-  auto h10 = tp * tp * tp - 2.0 * tp * tp + tp;
-  auto h01 = -2.0 * tp * tp * tp + 3.0 * tp * tp;
-  auto h11 = tp * tp * tp - tp * tp;
+  auto h00 = 2.0 * lt * lt * lt - 3.0 * lt * lt + 1.0;
+  auto h10 = lt * lt * lt - 2.0 * lt * lt + lt;
+  auto h01 = -2.0 * lt * lt * lt + 3.0 * lt * lt;
+  auto h11 = lt * lt * lt - lt * lt;
 
   return _controls[i] * h00 + step * mk0 * h10 + _controls[i + 1] * h01 +
          step * mk1 * h11;
