@@ -4,6 +4,7 @@
 #include <QPainter>
 #include <QRandomGenerator>
 #include <QWidget>
+#include <algorithm>
 
 class SplineWidget : public QWidget {
 public:
@@ -95,8 +96,10 @@ void SplineWidget::mousePressEvent(QMouseEvent *e) {
 
 void SplineWidget::mouseMoveEvent(QMouseEvent *e) {
 
-  if (_selectIndex >= 0)
-    _controls[_selectIndex] = e->position().y();
+  if (_selectIndex >= 0) {
+    double y = std::clamp(e->position().y(), 0.0, double(height()));
+    _controls[_selectIndex] = y;
+  }
 
   e->ignore();
   update();
