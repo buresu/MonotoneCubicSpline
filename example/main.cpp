@@ -28,7 +28,7 @@ SplineWidget::SplineWidget(QWidget *parent) : QWidget(parent) {
   setPalette(Qt::white);
 
   _controls.append({0, 43.76931});
-  _controls.append({0.3, 19.131026});
+  _controls.append({0.25, 19.131026});
   _controls.append({0.5, 10.58543});
   _controls.append({0.75, 5.7298435});
   _controls.append({1.0, 2.627706});
@@ -49,8 +49,8 @@ void SplineWidget::paintEvent(QPaintEvent *) {
   MonotoneCubicSpline cs(controls);
   QPolygonF path;
 
-  for (int i = 0; i <= 100; ++i) {
-    double t = double(i) / 100.0;
+  for (int i = 0; i <= 1000; ++i) {
+    double t = double(i) / 1000.0;
     auto y = cs.interpolate(t);
     path.append(QPointF(double(width()) * t, y));
   }
@@ -86,9 +86,18 @@ void SplineWidget::mousePressEvent(QMouseEvent *e) {
 
 void SplineWidget::mouseMoveEvent(QMouseEvent *e) {
 
-  if (_selectIndex >= 0) {
+  if (_selectIndex == 0 || _controls.size() - 1 == _selectIndex) {
     double y = std::clamp(e->position().y(), 0.0, double(height()));
     _controls[_selectIndex] = {_controls[_selectIndex].first, y};
+  } else if (_selectIndex >= 0) {
+    double t0 = _controls[_selectIndex - 1].first * double(width());
+    double t1 = _controls[_selectIndex + 1].first * double(width());
+
+    double x = std::clamp(e->position().x(), t0 + (t1 - t0) * 0.01,
+                          t0 + (t1 - t0) * 0.99) /
+               double(width());
+    double y = std::clamp(e->position().y(), 0.0, double(height()));
+    _controls[_selectIndex] = {x, y};
   }
 
   e->ignore();
