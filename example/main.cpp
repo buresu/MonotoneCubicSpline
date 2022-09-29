@@ -18,7 +18,7 @@ protected:
   virtual void mouseReleaseEvent(QMouseEvent *e) override;
 
 private:
-  QList<double> _controls;
+  QList<QPair<double, double>> _controls;
   int _selectIndex = -1;
 };
 
@@ -27,23 +27,11 @@ SplineWidget::SplineWidget(QWidget *parent) : QWidget(parent) {
   setAutoFillBackground(true);
   setPalette(Qt::white);
 
-  /*for (int i = 0; i < 6; ++i) {
-    auto x = QRandomGenerator::global()->generateDouble() * width();
-    auto y = QRandomGenerator::global()->generateDouble() * height();
-    x = qMin(qMax(10.0, x), double(width() - 10));
-    y = qMin(qMax(10.0, y), double(width() - 10));
-    mControls.append(QPointF(x, y));
-  }*/
-
-  // std::sort(mControls.begin(), mControls.end(),
-  //          [](auto const &lhs, auto const &rhs) { return lhs.x() > rhs.x();
-  //          });
-
-  _controls.append(43.76931);
-  _controls.append(19.131026);
-  _controls.append(10.58543);
-  _controls.append(5.7298435);
-  _controls.append(2.627706);
+  _controls.append({0, 43.76931});
+  _controls.append({0.3, 19.131026});
+  _controls.append({0.5, 10.58543});
+  _controls.append({0.75, 5.7298435});
+  _controls.append({1.0, 2.627706});
 }
 
 void SplineWidget::paintEvent(QPaintEvent *) {
@@ -51,8 +39,6 @@ void SplineWidget::paintEvent(QPaintEvent *) {
   QPainter p(this);
 
   p.setRenderHint(QPainter::Antialiasing);
-
-  p.fillRect(rect(), Qt::white);
 
   // draw spline
   MonotoneCubicSpline::Controls controls;
@@ -74,9 +60,10 @@ void SplineWidget::paintEvent(QPaintEvent *) {
 
   // draw controls
   for (int i = 0; i < _controls.size(); ++i) {
-    double step = double(width()) / double(_controls.size() - 1);
     _selectIndex == i ? p.setPen(Qt::magenta) : p.setPen(Qt::black);
-    p.drawEllipse(QPointF(step * double(i), _controls[i]), 3, 3);
+    p.drawEllipse(
+        QPointF(double(width()) * _controls[i].first, _controls[i].second), 3,
+        3);
   }
 }
 
@@ -84,8 +71,8 @@ void SplineWidget::mousePressEvent(QMouseEvent *e) {
 
   if (e->button() == Qt::LeftButton) {
     for (int i = 0; i < _controls.size(); ++i) {
-      double step = double(width()) / double(_controls.size() - 1);
-      auto d = e->position() - QPointF(step * double(i), _controls[i]);
+      auto d = e->position() - QPointF(_controls[i].first * double(width()),
+                                       _controls[i].second);
       if (d.x() * d.x() + d.y() * d.y() < 6 * 6) {
         _selectIndex = i;
         break;
@@ -101,7 +88,7 @@ void SplineWidget::mouseMoveEvent(QMouseEvent *e) {
 
   if (_selectIndex >= 0) {
     double y = std::clamp(e->position().y(), 0.0, double(height()));
-    _controls[_selectIndex] = y;
+    _controls[_selectIndex] = {_controls[_selectIndex].first, y};
   }
 
   e->ignore();

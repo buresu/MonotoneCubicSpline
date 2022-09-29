@@ -1,13 +1,18 @@
 #include "MonotoneCubicSpline.hpp"
+#include <algorithm>
+#include <cmath>
 
 MonotoneCubicSpline::MonotoneCubicSpline() {}
 
 MonotoneCubicSpline::MonotoneCubicSpline(size_t size) {
-  _controls.resize(size);
+  Type step = 1.0 / Type(size - 1);
+  for (size_t i = 0; i < size; ++i)
+    _controls.push_back({step * Type(i), 0.0});
 }
 
-MonotoneCubicSpline::MonotoneCubicSpline(const Controls &controls)
-    : _controls(controls) {}
+MonotoneCubicSpline::MonotoneCubicSpline(const Controls &controls) {
+  setControls(controls);
+}
 
 MonotoneCubicSpline::~MonotoneCubicSpline() {}
 
@@ -15,12 +20,39 @@ bool MonotoneCubicSpline::isValid() const { return _controls.size() >= 2; }
 
 size_t MonotoneCubicSpline::size() const { return _controls.size(); }
 
+std::vector<MonotoneCubicSpline::Type>
+MonotoneCubicSpline::controlKeys() const {
+  std::vector<Type> keys;
+  std::transform(_controls.begin(), _controls.end(), std::back_inserter(keys),
+                 [](const auto &p) { return p.first; });
+  return keys;
+}
+
 MonotoneCubicSpline::Control MonotoneCubicSpline::control(size_t index) const {
   return _controls[index];
 }
 
 void MonotoneCubicSpline::setControl(size_t index, const Control &control) {
   _controls[index] = control;
+  std::sort(
+      _controls.begin(), _controls.end(),
+      [](const auto &lhs, const auto &rhs) { return lhs.first < rhs.first; });
+}
+
+void MonotoneCubicSpline::addControl(const Control &control) {
+  _controls.push_back(control);
+  std::sort(
+      _controls.begin(), _controls.end(),
+      [](const auto &lhs, const auto &rhs) { return lhs.first < rhs.first; });
+}
+
+void MonotoneCubicSpline::removeControl(size_t index) {
+  _controls.erase(_controls.begin() + index);
+}
+
+void MonotoneCubicSpline::removeControl(const Control &control) {
+  _controls.erase(std::remove(_controls.begin(), _controls.end(), control),
+                  _controls.end());
 }
 
 MonotoneCubicSpline::Controls MonotoneCubicSpline::controls() const {
@@ -29,6 +61,9 @@ MonotoneCubicSpline::Controls MonotoneCubicSpline::controls() const {
 
 void MonotoneCubicSpline::setControls(const Controls &controls) {
   _controls = controls;
+  std::sort(
+      _controls.begin(), _controls.end(),
+      [](const auto &lhs, const auto &rhs) { return lhs.first < rhs.first; });
 }
 
 void MonotoneCubicSpline::reshape(size_t size) {
@@ -38,52 +73,67 @@ void MonotoneCubicSpline::reshape(size_t size) {
 
   Controls controls(size);
 
-  const double step = 1.0 / double(size - 1);
+  const Type step = 1.0 / Type(size - 1);
 
   for (size_t i = 0; i < size; ++i)
-    controls[i] = interpolate(step * double(i));
+    controls[i] = {step * Type(i), interpolate(step * Type(i))};
 
-  _controls = controls;
+  setControls(controls);
 }
 
-MonotoneCubicSpline::Control MonotoneCubicSpline::interpolate(double t) const {
+MonotoneCubicSpline::Type MonotoneCubicSpline::interpolate(Type t) const {
 
-  const double step = 1.0 / double(_controls.size() - 1);
-  double index = 0;
-  const double lt = std::modf(t / step, &index);
-  const size_t i = size_t(index);
+  const auto keys = controlKeys();
+  const auto min = *std::min_element(keys.begin(), keys.end());
+  const auto max = *std::max_element(keys.begin(), keys.end());
 
-  static auto delta = [](const Control &p1, const Control &p2, double step) {
-    return (p2 - p1) / step;
+  // Out of range
+  if (t <= min) {
+    return _controls.front().second;
+  } else if (t >= max) {
+    return _controls.back().second;
+  }
+
+  // Find index
+  size_t idx;
+
+  for (size_t i = 0; i < _controls.size() - 1; ++i) {
+    if (_controls[i].first <= t && _controls[i + 1].first > t) {
+      idx = i;
+      break;
+    }
+  }
+
+  // Step 1
+  static auto delta = [](const Control &c0, const Control &c1) {
+    return (c1.second - c0.second) / (c1.first - c0.first);
   };
 
-  static auto m = [&](const Control &p0, const Control &p1, const Control &p2,
-                      double step) {
-    auto d0 = delta(p0, p1, step);
-    auto d1 = delta(p1, p2, step);
+  auto dk = delta(_controls[idx], _controls[idx + 1]);
+
+  // Step 2
+  static auto m = [&](const Control &c0, const Control &c1, const Control &c2) {
+    auto d0 = delta(c0, c1);
+    auto d1 = delta(c1, c2);
     return d0 * d1 < 0.0 ? 0.0 : (d0 + d1) * 0.5;
   };
 
-  // Step 1
-  auto dk = delta(_controls[i], _controls[i + 1], step);
+  Type mk0, mk1;
 
-  // Step 2
-  Control mk0, mk1;
-
-  if (i == 0) {
-    mk0 = delta(_controls[i], _controls[i + 1], step);
-    mk1 = m(_controls[i], _controls[i + 1], _controls[i + 2], step);
-  } else if (i == _controls.size() - 2) {
-    mk0 = m(_controls[i - 1], _controls[i], _controls[i + 1], step);
-    mk1 = delta(_controls[i], _controls[i + 1], step);
+  if (idx == 0) {
+    mk0 = delta(_controls[idx], _controls[idx + 1]);
+    mk1 = m(_controls[idx], _controls[idx + 1], _controls[idx + 2]);
+  } else if (idx == _controls.size() - 2) {
+    mk0 = m(_controls[idx - 1], _controls[idx], _controls[idx + 1]);
+    mk1 = delta(_controls[idx], _controls[idx + 1]);
   } else {
-    mk0 = m(_controls[i - 1], _controls[i], _controls[i + 1], step);
-    mk1 = m(_controls[i], _controls[i + 1], _controls[i + 2], step);
+    mk0 = m(_controls[idx - 1], _controls[idx], _controls[idx + 1]);
+    mk1 = m(_controls[idx], _controls[idx + 1], _controls[idx + 2]);
   }
 
   // Step 3
-  if (std::abs(_controls[i] - _controls[i + 1]) <
-      std::numeric_limits<Control>::epsilon()) {
+  if (std::abs(_controls[idx].second - _controls[idx + 1].second) <
+      std::numeric_limits<Type>::epsilon()) {
     mk0 = mk1 = 0.0;
   } else {
 
@@ -96,17 +146,19 @@ MonotoneCubicSpline::Control MonotoneCubicSpline::interpolate(double t) const {
 
     // Step 5
     if (ak * ak + bk * bk > 9) {
-      double gk = 3.0 / std::sqrt(ak * ak + bk * bk);
+      Type gk = 3.0 / std::sqrt(ak * ak + bk * bk);
       mk0 = gk * ak * dk;
       mk1 = gk * bk * dk;
     }
   }
 
-  auto h00 = 2.0 * lt * lt * lt - 3.0 * lt * lt + 1.0;
-  auto h10 = lt * lt * lt - 2.0 * lt * lt + lt;
-  auto h01 = -2.0 * lt * lt * lt + 3.0 * lt * lt;
-  auto h11 = lt * lt * lt - lt * lt;
+  const Type step = _controls[idx + 1].first - _controls[idx].first;
+  const Type lt = (t - _controls[idx].first) / step;
+  const auto h00 = 2.0 * lt * lt * lt - 3.0 * lt * lt + 1.0;
+  const auto h10 = lt * lt * lt - 2.0 * lt * lt + lt;
+  const auto h01 = -2.0 * lt * lt * lt + 3.0 * lt * lt;
+  const auto h11 = lt * lt * lt - lt * lt;
 
-  return _controls[i] * h00 + step * mk0 * h10 + _controls[i + 1] * h01 +
-         step * mk1 * h11;
+  return _controls[idx].second * h00 + step * mk0 * h10 +
+         _controls[idx + 1].second * h01 + step * mk1 * h11;
 }
