@@ -24,6 +24,9 @@ private:
 
 SplineWidget::SplineWidget(QWidget *parent) : QWidget(parent) {
 
+  setAutoFillBackground(true);
+  setPalette(Qt::white);
+
   /*for (int i = 0; i < 6; ++i) {
     auto x = QRandomGenerator::global()->generateDouble() * width();
     auto y = QRandomGenerator::global()->generateDouble() * height();
