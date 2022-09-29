@@ -28,6 +28,14 @@ MonotoneCubicSpline::controlKeys() const {
   return keys;
 }
 
+std::vector<MonotoneCubicSpline::Type>
+MonotoneCubicSpline::controlValues() const {
+  std::vector<Type> values;
+  std::transform(_controls.begin(), _controls.end(), std::back_inserter(values),
+                 [](const auto &p) { return p.second; });
+  return values;
+}
+
 MonotoneCubicSpline::Control MonotoneCubicSpline::control(size_t index) const {
   return _controls[index];
 }
@@ -84,21 +92,22 @@ void MonotoneCubicSpline::reshape(size_t size) {
 MonotoneCubicSpline::Type MonotoneCubicSpline::interpolate(Type t) const {
 
   const auto keys = controlKeys();
+  const auto values = controlValues();
   const auto min = *std::min_element(keys.begin(), keys.end());
   const auto max = *std::max_element(keys.begin(), keys.end());
 
   // Out of range
   if (t <= min) {
-    return _controls.front().second;
+    return values.front();
   } else if (t >= max) {
-    return _controls.back().second;
+    return values.back();
   }
 
   // Find index
   size_t idx;
 
-  for (size_t i = 0; i < _controls.size() - 1; ++i) {
-    if (_controls[i].first <= t && _controls[i + 1].first > t) {
+  for (size_t i = 0; i < keys.size() - 1; ++i) {
+    if (keys[i] <= t && keys[i + 1] > t) {
       idx = i;
       break;
     }
@@ -132,7 +141,7 @@ MonotoneCubicSpline::Type MonotoneCubicSpline::interpolate(Type t) const {
   }
 
   // Step 3
-  if (std::abs(_controls[idx].second - _controls[idx + 1].second) <
+  if (std::abs(values[idx] - values[idx + 1]) <
       std::numeric_limits<Type>::epsilon()) {
     mk0 = mk1 = 0.0;
   } else {
@@ -146,19 +155,19 @@ MonotoneCubicSpline::Type MonotoneCubicSpline::interpolate(Type t) const {
 
     // Step 5
     if (ak * ak + bk * bk > 9) {
-      Type gk = 3.0 / std::sqrt(ak * ak + bk * bk);
+      auto gk = 3.0 / std::sqrt(ak * ak + bk * bk);
       mk0 = gk * ak * dk;
       mk1 = gk * bk * dk;
     }
   }
 
-  const Type step = _controls[idx + 1].first - _controls[idx].first;
-  const Type lt = (t - _controls[idx].first) / step;
+  const auto step = keys[idx + 1] - keys[idx];
+  const auto lt = (t - keys[idx]) / step;
   const auto h00 = 2.0 * lt * lt * lt - 3.0 * lt * lt + 1.0;
   const auto h10 = lt * lt * lt - 2.0 * lt * lt + lt;
   const auto h01 = -2.0 * lt * lt * lt + 3.0 * lt * lt;
   const auto h11 = lt * lt * lt - lt * lt;
 
-  return _controls[idx].second * h00 + step * mk0 * h10 +
-         _controls[idx + 1].second * h01 + step * mk1 * h11;
+  return values[idx] * h00 + step * mk0 * h10 + values[idx + 1] * h01 +
+         step * mk1 * h11;
 }

@@ -19,6 +19,7 @@ public:
   size_t size() const;
 
   std::vector<Type> controlKeys() const;
+  std::vector<Type> controlValues() const;
 
   Control control(size_t index) const;
   void setControl(size_t index, const Control &control);
