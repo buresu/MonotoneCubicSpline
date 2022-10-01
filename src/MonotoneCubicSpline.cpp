@@ -1,6 +1,7 @@
 #include "MonotoneCubicSpline.hpp"
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 
 MonotoneCubicSpline::MonotoneCubicSpline() {}
 
